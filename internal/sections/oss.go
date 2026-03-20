@@ -85,10 +85,7 @@ func BuildOSS(client *gh.Client, username string, count int) (string, error) {
 	}
 
 	// Sort: merged first, then open, then closed.
-	sort.SliceStable(contribs, func(i, j int) bool {
-		ri, rj := rank(contribs[i]), rank(contribs[j])
-		return ri < rj
-	})
+	sortContribs(contribs)
 
 	if len(contribs) > count {
 		contribs = contribs[:count]
@@ -115,4 +112,11 @@ func rank(c contribution) int {
 		return 1
 	}
 	return 2
+}
+
+// sortContribs sorts contributions in-place: merged first, then open, then closed.
+func sortContribs(cs []contribution) {
+	sort.SliceStable(cs, func(i, j int) bool {
+		return rank(cs[i]) < rank(cs[j])
+	})
 }
