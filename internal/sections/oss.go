@@ -15,92 +15,37 @@ type contribution struct {
 }
 
 // BuildOSS returns the markdown content for the OSS zone.
-// It scans the user's recent public events for PullRequestEvents on external
-// repos, paginating up to maxEventPages pages to surface contributions that
-// may be buried in a busy activity stream. Results are sorted merged first
-// then open then closed, and up to count entries are returned.
+// It uses the GraphQL pullRequests API to find PRs authored by the user on
+// external public repos, sorted merged first then open then closed.
 func BuildOSS(client *gh.Client, username string, count int) (string, error) {
-	const maxEventPages = 3
+	nodes, err := client.FetchAuthoredPRs(username, count)
+	if err != nil {
+		return "", err
+	}
 
-	seen := map[string]bool{}
 	var contribs []contribution
-
-	for page := 1; page <= maxEventPages; page++ {
-		var events []gh.Event
-		url := fmt.Sprintf("/users/%s/events?per_page=100&page=%d", username, page)
-		if err := client.Get(url, &events); err != nil {
-			return "", err
+	for _, node := range nodes {
+		var status string
+		switch {
+		case node.Merged:
+			status = "✅ Merged"
+		case node.State == "OPEN":
+			status = "🔄 Open"
+		default:
+			status = "❌ Closed"
 		}
-
-		for _, e := range events {
-			if e.Type != "PullRequestEvent" {
-				continue
-			}
-			parts := strings.SplitN(e.Repo.Name, "/", 2)
-			if len(parts) < 2 || parts[0] == username {
-				continue
-			}
-
-			apiURL := e.Payload.PullRequest.URL
-			if apiURL == "" || seen[apiURL] {
-				continue
-			}
-			seen[apiURL] = true
-
-			// Fetch full PR details — the event payload is minimal
-			var pr gh.PullRequest
-			apiPath := strings.TrimPrefix(apiURL, gh.APIBase)
-			if err := client.Get(apiPath, &pr); err != nil {
-				continue
-			}
-
-			// Never show PRs from private repos
-			if pr.Base.Repo.Private {
-				continue
-			}
-
-			var status string
-			switch {
-			case pr.MergedAt != nil:
-				status = "✅ Merged"
-			case pr.State == "open":
-				status = "🔄 Open"
-			default:
-				status = "❌ Closed"
-			}
-
-			prURL := pr.HTMLURL
-			if prURL == "" {
-				prURL = fmt.Sprintf("https://github.com/%s/pull/%d", e.Repo.Name, e.Payload.PullRequest.Number)
-			}
-			title := pr.Title
-			if title == "" {
-				title = e.Repo.Name
-			}
-
-			contribs = append(contribs, contribution{
-				title:    title,
-				prURL:    prURL,
-				repoName: e.Repo.Name,
-				repoURL:  "https://github.com/" + e.Repo.Name,
-				status:   status,
-				merged:   pr.MergedAt != nil,
-				open:     pr.State == "open",
-			})
-		}
-
-		// Stop early if this was the last page or we have enough contributions.
-		if len(events) < 100 || len(contribs) >= count {
-			break
-		}
+		contribs = append(contribs, contribution{
+			title:    node.Title,
+			prURL:    node.URL,
+			repoName: node.Repository.NameWithOwner,
+			repoURL:  node.Repository.URL,
+			status:   status,
+			merged:   node.Merged,
+			open:     node.State == "OPEN",
+		})
 	}
 
-	// Sort: merged first, then open, then closed.
 	sortContribs(contribs)
-
-	if len(contribs) > count {
-		contribs = contribs[:count]
-	}
 
 	if len(contribs) == 0 {
 		return "### Recent OSS\n\n_No recent external contributions found._", nil

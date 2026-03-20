@@ -159,6 +159,77 @@ func (c *Client) Post(query string, variables map[string]any, out any) error {
 	return json.Unmarshal(wrapper.Data, out)
 }
 
+// PullRequestNode represents a PR returned by the GraphQL pullRequests query.
+type PullRequestNode struct {
+	Title    string  `json:"title"`
+	URL      string  `json:"url"`
+	State    string  `json:"state"`
+	Merged   bool    `json:"merged"`
+	MergedAt *string `json:"mergedAt"`
+	Repository struct {
+		NameWithOwner string `json:"nameWithOwner"`
+		URL           string `json:"url"`
+		IsPrivate     bool   `json:"isPrivate"`
+		Owner         struct {
+			Login string `json:"login"`
+		} `json:"owner"`
+	} `json:"repository"`
+}
+
+// FetchAuthoredPRs returns pull requests authored by the user, excluding
+// their own repos and private repos. It requests up to 100 PRs (the GraphQL
+// max) to provide headroom when many results are private or self-owned.
+func (c *Client) FetchAuthoredPRs(username string, limit int) ([]PullRequestNode, error) {
+	const query = `
+	query($login: String!, $count: Int!) {
+		user(login: $login) {
+			pullRequests(first: $count, states: [OPEN, MERGED, CLOSED],
+			             orderBy: {field: CREATED_AT, direction: DESC}) {
+				nodes {
+					title
+					url
+					state
+					merged
+					mergedAt
+					repository {
+						nameWithOwner
+						url
+						isPrivate
+						owner { login }
+					}
+				}
+			}
+		}
+	}`
+
+	// Always request 100 (the GraphQL max) to have plenty of headroom after
+	// filtering out private repos and self-owned repos.
+	const fetchCount = 100
+
+	var data struct {
+		User struct {
+			PullRequests struct {
+				Nodes []PullRequestNode `json:"nodes"`
+			} `json:"pullRequests"`
+		} `json:"user"`
+	}
+	if err := c.Post(query, map[string]any{"login": username, "count": fetchCount}, &data); err != nil {
+		return nil, err
+	}
+
+	var result []PullRequestNode
+	for _, node := range data.User.PullRequests.Nodes {
+		if node.Repository.IsPrivate || node.Repository.Owner.Login == username {
+			continue
+		}
+		result = append(result, node)
+		if len(result) >= limit {
+			break
+		}
+	}
+	return result, nil
+}
+
 // FetchPinnedRepos returns the user's pinned repositories via the GraphQL API.
 func (c *Client) FetchPinnedRepos(username string) ([]PinnedRepo, error) {
 	const query = `
