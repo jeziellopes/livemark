@@ -13,6 +13,7 @@
 //	--readme     path to README.md (default: README.md)
 //	--projects   number of featured projects to show (default: 4)
 //	--oss        number of OSS contributions to show (default: 5)
+//	--dry-run    preview generated content in livemark.preview.md without modifying README
 package main
 
 import (
@@ -30,6 +31,7 @@ func main() {
 	readmePath := flag.String("readme", "README.md", "path to README.md")
 	projectsCount := flag.Int("projects", 4, "number of featured projects")
 	ossCount := flag.Int("oss", 5, "number of OSS contributions")
+	dryRun := flag.Bool("dry-run", false, "preview generated content in livemark.preview.md without modifying README")
 	flag.Parse()
 
 	token := os.Getenv("GH_TOKEN")
@@ -55,6 +57,20 @@ func main() {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error fetching OSS contributions:", err)
 		os.Exit(1)
+	}
+
+	if *dryRun {
+		const previewPath = "livemark.preview.md"
+		zones := []readme.PreviewZone{
+			{Name: "PROJECTS", Content: projects},
+			{Name: "OSS", Content: oss},
+		}
+		if err := readme.WritePreview(previewPath, *username, zones); err != nil {
+			fmt.Fprintln(os.Stderr, "error writing preview:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Preview written to %s\n", previewPath)
+		return
 	}
 
 	changed := false
