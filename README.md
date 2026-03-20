@@ -53,12 +53,16 @@ GH_TOKEN=your_pat livemark --username yourusername
 
 ### 4. Automate with GitHub Actions
 
-Add this workflow to your profile repo (`.github/workflows/update-readme.yml`):
+Add this workflow to your profile repo (`.github/workflows/update-readme.yml`).
+It runs on a **daily schedule** and also on a **`livemark-release` dispatch** event so your
+profile updates immediately whenever a new livemark version is released.
 
 ```yaml
 name: Update README
 
 on:
+  repository_dispatch:
+    types: [livemark-release]
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
@@ -87,6 +91,10 @@ jobs:
 ```
 
 > **Required secret:** `GH_TOKEN` — Personal Access Token with `repo` and `read:user` scopes.
+
+To enable instant updates on release, also add `PROFILE_DISPATCH_TOKEN` to the **livemark
+repo** secrets — a PAT with `repo` scope on your profile repo. livemark's release workflow
+fires the dispatch automatically after each tagged release.
 
 ## Local development
 

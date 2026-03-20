@@ -1,5 +1,7 @@
 # Runs GoReleaser on version tag pushes (v*.*.*) to publish
 # cross-platform binaries for linux, macOS, and Windows.
+# After a successful release, fires a repository_dispatch event to the
+# profile repo so the README is updated immediately with the new version.
 
 name: Release
 
@@ -29,3 +31,15 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger profile README update
+        if: ${{ secrets.PROFILE_DISPATCH_TOKEN != '' }}
+        env:
+          PROFILE_DISPATCH_TOKEN: ${{ secrets.PROFILE_DISPATCH_TOKEN }}
+        run: |
+          PROFILE_REPO="${{ github.repository_owner }}/${{ github.repository_owner }}"
+          curl -s -o /dev/null -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer $PROFILE_DISPATCH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${PROFILE_REPO}/dispatches" \
+            -d "{\"event_type\":\"livemark-release\",\"client_payload\":{\"version\":\"${{ github.ref_name }}\"}}"
