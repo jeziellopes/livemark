@@ -14,7 +14,12 @@ Add HTML comment markers to your `README.md` to define dynamic zones:
 <!-- OSS_END -->
 ```
 
-Run `livemark` and it rewrites each zone with live data from GitHub — featured projects ranked by stars and recency, and recent OSS contributions. Everything outside the markers stays untouched.
+Run `livemark` and it rewrites each zone with live data from GitHub:
+
+- **PROJECTS** — your pinned repos appear first (in your defined order), followed by public repos ranked by stars, recency, and size. Repos not pushed to in 2+ years are excluded.
+- **OSS** — recent pull requests on external repos, sorted merged → open → closed.
+
+Everything outside the markers stays untouched. Zones are idempotent — if data hasn't changed, the file is not modified.
 
 ## Quickstart
 
@@ -28,20 +33,25 @@ Run `livemark` and it rewrites each zone with live data from GitHub — featured
 <!-- OSS_END -->
 ```
 
-### 2. Run livemark
+### 2. Install livemark
 
 ```bash
-GH_TOKEN=your_pat GH_GITHUB_USERNAME=yourusername go run github.com/jeziellopes/livemark@latest
+curl -fsSL https://raw.githubusercontent.com/jeziellopes/livemark/main/install.sh | bash
 ```
 
-Or install it:
+Or with Go directly:
 
 ```bash
 go install github.com/jeziellopes/livemark@latest
+```
+
+### 3. Run livemark
+
+```bash
 GH_TOKEN=your_pat livemark --username yourusername
 ```
 
-### 3. Automate with GitHub Actions
+### 4. Automate with GitHub Actions
 
 Add this workflow to your profile repo (`.github/workflows/update-readme.yml`):
 
@@ -78,6 +88,29 @@ jobs:
 
 > **Required secret:** `GH_TOKEN` — Personal Access Token with `repo` and `read:user` scopes.
 
+## Local development
+
+If you have the [GitHub CLI](https://cli.github.com/) installed and authenticated, no token setup is needed:
+
+```bash
+gh auth login
+livemark --username yourname --dry-run
+# Preview written to livemark.preview.md
+```
+
+Open `livemark.preview.md` in any markdown viewer to see exactly what livemark would inject into your README — without modifying it.
+
+Token resolution order (first found wins):
+
+| Priority | Source |
+|----------|--------|
+| 1 | `GH_TOKEN` env var |
+| 2 | `GITHUB_TOKEN` env var |
+| 3 | `gh auth token` (gh ≥ 2.37) |
+| 4 | `gh auth status --show-token` (gh < 2.37) |
+
+`livemark.preview.md` is gitignored by default and safe to generate locally at any time.
+
 ## Flags
 
 | Flag | Env | Default | Description |
@@ -86,15 +119,14 @@ jobs:
 | `--readme` | — | `README.md` | Path to README file |
 | `--projects` | — | `4` | Number of featured projects |
 | `--oss` | — | `5` | Number of OSS contributions |
+| `--dry-run` | — | `false` | Write preview to `livemark.preview.md` instead of modifying README |
 
 ## Zone reference
 
 | Zone | Content |
 |------|---------|
-| `PROJECTS` | Top public repos ranked by stars + recency, rendered as prose bullets |
-| `OSS` | Recent merged/open PRs on external public repos |
-
-Zones are idempotent — if data hasn't changed since the last run, the file is not modified.
+| `PROJECTS` | Pinned repos first, then top public repos ranked by stars × recency × size. Repos inactive 2+ years are excluded. |
+| `OSS` | Recent PRs on external public repos, sorted merged → open → closed |
 
 ## Privacy
 

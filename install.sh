@@ -21,14 +21,32 @@ fi
 
 echo "Installed to $GOBIN/$BINARY"
 
-# Warn if the bin dir is not in PATH
+# If GOBIN is not in PATH, add it to the appropriate shell profile
 if ! echo "$PATH" | tr ':' '\n' | grep -qx "$GOBIN"; then
-  echo ""
-  echo "  ⚠️  $GOBIN is not in your PATH."
-  echo "  Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
-  echo ""
-  echo "    export PATH=\"\$PATH:$GOBIN\""
-  echo ""
+  # Detect shell profile
+  case "${SHELL:-}" in
+    */zsh)  PROFILE="$HOME/.zshrc" ;;
+    */bash) PROFILE="$HOME/.bashrc" ;;
+    *)      PROFILE="$HOME/.profile" ;;
+  esac
+
+  EXPORT_LINE="export PATH=\"\$PATH:$GOBIN\""
+
+  if ! grep -qF "$GOBIN" "$PROFILE" 2>/dev/null; then
+    echo "" >> "$PROFILE"
+    echo "# Added by livemark installer" >> "$PROFILE"
+    echo "$EXPORT_LINE" >> "$PROFILE"
+    echo ""
+    echo "  ✅ Added PATH export to $PROFILE"
+    echo "  Run this to apply now:"
+    echo ""
+    echo "    source $PROFILE"
+    echo ""
+  else
+    echo ""
+    echo "  ℹ️  $GOBIN already referenced in $PROFILE (restart your shell to apply)"
+    echo ""
+  fi
 fi
 
 echo "Done. Run: $BINARY --help"
