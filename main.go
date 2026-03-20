@@ -20,6 +20,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	gh "github.com/jeziellopes/livemark/internal/github"
 	"github.com/jeziellopes/livemark/internal/readme"
@@ -34,9 +36,9 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "preview generated content in livemark.preview.md without modifying README")
 	flag.Parse()
 
-	token := os.Getenv("GH_TOKEN")
+	token := resolveToken()
 	if token == "" {
-		fmt.Fprintln(os.Stderr, "error: GH_TOKEN environment variable is required")
+		fmt.Fprintln(os.Stderr, "error: no GitHub token found.\nSet GH_TOKEN or authenticate with: gh auth login")
 		os.Exit(1)
 	}
 	if *username == "" {
@@ -96,4 +98,33 @@ func main() {
 	} else {
 		fmt.Println("README.md is already up to date.")
 	}
+}
+
+// resolveToken returns a GitHub token from the first available source:
+// GH_TOKEN env → GITHUB_TOKEN env → gh auth token (gh≥2.37) →
+// gh auth status --show-token (gh<2.37).
+func resolveToken() string {
+	if t := os.Getenv("GH_TOKEN"); t != "" {
+		return t
+	}
+	if t := os.Getenv("GITHUB_TOKEN"); t != "" {
+		return t
+	}
+	// gh auth token — available in gh >= 2.37
+	if out, err := exec.Command("gh", "auth", "token").Output(); err == nil {
+		if t := strings.TrimSpace(string(out)); t != "" {
+			return t
+		}
+	}
+	// gh auth status --show-token — fallback for older gh versions
+	if out, err := exec.Command("gh", "auth", "status", "--show-token").CombinedOutput(); err == nil {
+		for _, line := range strings.Split(string(out), "\n") {
+			if _, after, ok := strings.Cut(line, "Token: "); ok {
+				if t := strings.TrimSpace(after); t != "" {
+					return t
+				}
+			}
+		}
+	}
+	return ""
 }
