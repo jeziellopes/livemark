@@ -1,6 +1,7 @@
 package github
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,6 +21,18 @@ type Repo struct {
 	Fork            bool      `json:"fork"`
 	Private         bool      `json:"private"`
 	UpdatedAt       time.Time `json:"updated_at"`
+	PushedAt        time.Time `json:"pushed_at"`
+	Size            int       `json:"size"`
+}
+
+// PinnedRepo represents a pinned repository from the GitHub GraphQL API.
+type PinnedRepo struct {
+	Name            string    `json:"name"`
+	Description     string    `json:"description"`
+	URL             string    `json:"url"`
+	StargazerCount  int       `json:"stargazerCount"`
+	PushedAt        time.Time `json:"pushedAt"`
+	Size            int       `json:"diskUsage"`
 }
 
 // Event represents a GitHub public event.
@@ -102,4 +115,79 @@ func (c *Client) Get(path string, out any) error {
 		return fmt.Errorf("GitHub API %s returned %d: %s", path, resp.StatusCode, body)
 	}
 	return json.Unmarshal(body, out)
+}
+
+// Post executes a GitHub GraphQL query and decodes the response data into out.
+func (c *Client) Post(query string, variables map[string]any, out any) error {
+	payload, err := json.Marshal(map[string]any{"query": query, "variables": variables})
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest("POST", APIBase+"/graphql", bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("GitHub GraphQL returned %d: %s", resp.StatusCode, body)
+	}
+
+	var wrapper struct {
+		Data   json.RawMessage `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(body, &wrapper); err != nil {
+		return err
+	}
+	if len(wrapper.Errors) > 0 {
+		return fmt.Errorf("GitHub GraphQL error: %s", wrapper.Errors[0].Message)
+	}
+	return json.Unmarshal(wrapper.Data, out)
+}
+
+// FetchPinnedRepos returns the user's pinned repositories via the GraphQL API.
+func (c *Client) FetchPinnedRepos(username string) ([]PinnedRepo, error) {
+	const query = `
+	query($login: String!) {
+		user(login: $login) {
+			pinnedItems(first: 6, types: [REPOSITORY]) {
+				nodes {
+					... on Repository {
+						name
+						description
+						url
+						stargazerCount
+						pushedAt
+						diskUsage
+					}
+				}
+			}
+		}
+	}`
+
+	var data struct {
+		User struct {
+			PinnedItems struct {
+				Nodes []PinnedRepo `json:"nodes"`
+			} `json:"pinnedItems"`
+		} `json:"user"`
+	}
+	if err := c.Post(query, map[string]any{"login": username}, &data); err != nil {
+		return nil, err
+	}
+	return data.User.PinnedItems.Nodes, nil
 }
