@@ -2,6 +2,7 @@ package sections
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	gh "github.com/jeziellopes/livemark/internal/github"
@@ -9,12 +10,14 @@ import (
 
 type contribution struct {
 	title, prURL, repoName, repoURL, status string
+	merged                                  bool
+	open                                    bool
 }
 
 // BuildOSS returns the markdown content for the OSS zone.
-// It scans the user's recent public events for PullRequestEvents on external repos
-// (repos not owned by the user), filters out private repos, and returns up to
-// count entries as prose bullet points.
+// It scans the user's recent public events for PullRequestEvents on external
+// repos, collects all unique contributions, sorts merged first then open then
+// closed, and returns up to count entries as prose bullet points.
 func BuildOSS(client *gh.Client, username string, count int) (string, error) {
 	var events []gh.Event
 	if err := client.Get(fmt.Sprintf("/users/%s/events?per_page=100", username), &events); err != nil {
@@ -76,10 +79,19 @@ func BuildOSS(client *gh.Client, username string, count int) (string, error) {
 			repoName: e.Repo.Name,
 			repoURL:  "https://github.com/" + e.Repo.Name,
 			status:   status,
+			merged:   pr.MergedAt != nil,
+			open:     pr.State == "open",
 		})
-		if len(contribs) >= count {
-			break
-		}
+	}
+
+	// Sort: merged first, then open, then closed.
+	sort.SliceStable(contribs, func(i, j int) bool {
+		ri, rj := rank(contribs[i]), rank(contribs[j])
+		return ri < rj
+	})
+
+	if len(contribs) > count {
+		contribs = contribs[:count]
 	}
 
 	if len(contribs) == 0 {
@@ -92,4 +104,15 @@ func BuildOSS(client *gh.Client, username string, count int) (string, error) {
 		fmt.Fprintf(&sb, "- %s **[%s](%s)** into [%s](%s)\n", c.status, c.title, c.prURL, c.repoName, c.repoURL)
 	}
 	return strings.TrimRight(sb.String(), "\n"), nil
+}
+
+// rank returns a sort key: 0 = merged, 1 = open, 2 = closed.
+func rank(c contribution) int {
+	if c.merged {
+		return 0
+	}
+	if c.open {
+		return 1
+	}
+	return 2
 }
