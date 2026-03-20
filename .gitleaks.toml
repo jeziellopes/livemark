@@ -1,0 +1,18 @@
+# Gitleaks configuration
+# https://github.com/gitleaks/gitleaks
+
+title = "{project-name} gitleaks config"
+
+[extend]
+# Use the default gitleaks ruleset as a base
+useDefault = true
+
+[allowlist]
+description = "Project-specific allowlist"
+# Add regex patterns for known false positives, e.g.:
+# regexes = ['''example-not-a-real-key''']
+paths = [
+  '''.env.example''',
+  '''docs/secrets.md''',
+  '''CHANGELOG.md''',
+]

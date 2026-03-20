@@ -34,12 +34,22 @@ func BuildProjects(client *gh.Client, username string, count int) (string, error
 		pinnedNames[p.Name] = true
 	}
 
-	// Filter REST repos: public, non-fork, non-self, not already pinned.
+	// Filter REST repos: public, non-fork, non-self, not already pinned, and
+	// pushed to within the last maxRepoAgeDays days.
+	const maxRepoAgeDays = 730
 	var public []gh.Repo
 	for _, r := range repos {
-		if !r.Private && !r.Fork && r.Name != username && !pinnedNames[r.Name] {
-			public = append(public, r)
+		if r.Private || r.Fork || r.Name == username || pinnedNames[r.Name] {
+			continue
 		}
+		pushedAt := r.PushedAt
+		if pushedAt.IsZero() {
+			pushedAt = r.UpdatedAt
+		}
+		if time.Since(pushedAt).Hours()/24 > maxRepoAgeDays {
+			continue
+		}
+		public = append(public, r)
 	}
 	sort.Slice(public, func(i, j int) bool {
 		return repoScore(public[i]) > repoScore(public[j])
@@ -81,17 +91,17 @@ func BuildProjects(client *gh.Client, username string, count int) (string, error
 	return strings.TrimRight(sb.String(), "\n"), nil
 }
 
-// repoScore ranks repos by a composite of log-scaled stars, recency of last
-// push, and log-scaled repo size. Log-scaling prevents a handful of
-// high-star repos from drowning out newer, actively developed projects.
+// repoScore ranks repos by a composite of log-scaled stars and size,
+// multiplied by a recency factor (linear decay over 730 days).
+// Multiplicative recency ensures stale repos are always penalised relative
+// to recent ones — no amount of stars can rescue a 2-year-old project.
 func repoScore(r gh.Repo) float64 {
 	pushedAt := r.PushedAt
 	if pushedAt.IsZero() {
 		pushedAt = r.UpdatedAt
 	}
 	daysAgo := time.Since(pushedAt).Hours() / 24
-	recency := math.Max(0, 365-daysAgo) / 365
-	return math.Log1p(float64(r.StargazersCount))*10 +
-		recency +
-		math.Log1p(float64(r.Size))*2
+	recencyFactor := math.Max(0, 730-daysAgo) / 730
+	popularity := math.Log1p(float64(r.StargazersCount))*10 + math.Log1p(float64(r.Size))*2
+	return popularity * recencyFactor
 }
