@@ -161,11 +161,12 @@ func (c *Client) Post(query string, variables map[string]any, out any) error {
 
 // PullRequestNode represents a PR returned by the GraphQL pullRequests query.
 type PullRequestNode struct {
-	Title    string  `json:"title"`
-	URL      string  `json:"url"`
-	State    string  `json:"state"`
-	Merged   bool    `json:"merged"`
-	MergedAt *string `json:"mergedAt"`
+	Title     string  `json:"title"`
+	URL       string  `json:"url"`
+	State     string  `json:"state"`
+	Merged    bool    `json:"merged"`
+	MergedAt  *string `json:"mergedAt"`
+	CreatedAt string  `json:"createdAt"`
 	Repository struct {
 		NameWithOwner string `json:"nameWithOwner"`
 		URL           string `json:"url"`
@@ -191,6 +192,7 @@ func (c *Client) FetchAuthoredPRs(username string, limit int) ([]PullRequestNode
 					state
 					merged
 					mergedAt
+					createdAt
 					repository {
 						nameWithOwner
 						url

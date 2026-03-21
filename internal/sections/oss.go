@@ -12,6 +12,7 @@ type contribution struct {
 	title, prURL, repoName, repoURL, status string
 	merged                                  bool
 	open                                    bool
+	createdAt                               string
 }
 
 // BuildOSS returns the markdown content for the OSS zone.
@@ -35,13 +36,14 @@ func BuildOSS(client *gh.Client, username string, count int) (string, error) {
 			status = "❌ Closed"
 		}
 		contribs = append(contribs, contribution{
-			title:    node.Title,
-			prURL:    node.URL,
-			repoName: node.Repository.NameWithOwner,
-			repoURL:  node.Repository.URL,
-			status:   status,
-			merged:   node.Merged,
-			open:     node.State == "OPEN",
+			title:     node.Title,
+			prURL:     node.URL,
+			repoName:  node.Repository.NameWithOwner,
+			repoURL:   node.Repository.URL,
+			status:    status,
+			merged:    node.Merged,
+			open:      node.State == "OPEN",
+			createdAt: node.CreatedAt,
 		})
 	}
 
@@ -71,8 +73,14 @@ func rank(c contribution) int {
 }
 
 // sortContribs sorts contributions in-place: merged first, then open, then closed.
+// Within each status group, newer contributions appear first (descending by createdAt).
 func sortContribs(cs []contribution) {
 	sort.SliceStable(cs, func(i, j int) bool {
-		return rank(cs[i]) < rank(cs[j])
+		ri, rj := rank(cs[i]), rank(cs[j])
+		if ri != rj {
+			return ri < rj
+		}
+		// Same rank: sort by createdAt descending (newer first)
+		return cs[i].createdAt > cs[j].createdAt
 	})
 }
