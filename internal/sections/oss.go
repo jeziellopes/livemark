@@ -72,15 +72,9 @@ func rank(c contribution) int {
 	return 2
 }
 
-// sortContribs sorts contributions in-place: merged first, then open, then closed.
-// Within each status group, newer contributions appear first (descending by createdAt).
+// sortContribs sorts contributions in-place by creation date descending (newest first).
 func sortContribs(cs []contribution) {
 	sort.SliceStable(cs, func(i, j int) bool {
-		ri, rj := rank(cs[i]), rank(cs[j])
-		if ri != rj {
-			return ri < rj
-		}
-		// Same rank: sort by createdAt descending (newer first)
 		return cs[i].createdAt > cs[j].createdAt
 	})
 }

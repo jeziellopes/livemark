@@ -22,19 +22,16 @@ func TestRank_ClosedLast(t *testing.T) {
 	}
 }
 
-func TestOSSSort_MergedBeforeOpenBeforeClosed(t *testing.T) {
+func TestOSSSort_NewestFirst(t *testing.T) {
 	input := []contribution{
-		{title: "closed", status: "❌ Closed"},
-		{title: "open", status: "🔄 Open", open: true},
-		{title: "merged", status: "✅ Merged", merged: true},
-		{title: "closed2", status: "❌ Closed"},
-		{title: "open2", status: "🔄 Open", open: true},
+		{title: "oldest", createdAt: "2026-03-15T10:00:00Z"},
+		{title: "newest", createdAt: "2026-03-21T02:00:00Z"},
+		{title: "middle", createdAt: "2026-03-18T15:00:00Z"},
 	}
 
-	// Apply the same sort used in BuildOSS
 	sortContribs(input)
 
-	wantOrder := []string{"merged", "open", "open2", "closed", "closed2"}
+	wantOrder := []string{"newest", "middle", "oldest"}
 	for i, want := range wantOrder {
 		if input[i].title != want {
 			t.Errorf("position %d: want %q, got %q", i, want, input[i].title)
