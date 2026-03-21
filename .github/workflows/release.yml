@@ -36,14 +36,10 @@ jobs:
         env:
           PROFILE_DISPATCH_TOKEN: ${{ secrets.PROFILE_DISPATCH_TOKEN }}
         run: |
-          if [ -z "$PROFILE_DISPATCH_TOKEN" ]; then
-            echo "PROFILE_DISPATCH_TOKEN not set — skipping profile dispatch"
-            exit 0
-          fi
           PROFILE_REPO="${{ github.repository_owner }}/${{ github.repository_owner }}"
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
             -H "Authorization: Bearer $PROFILE_DISPATCH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${PROFILE_REPO}/dispatches" \
             -d "{\"event_type\":\"livemark-release\",\"client_payload\":{\"version\":\"${{ github.ref_name }}\"}}")
-          echo "Dispatch response: $STATUS"
+          echo "Dispatch HTTP status: $STATUS"
