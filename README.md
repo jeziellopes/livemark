@@ -64,7 +64,7 @@ on:
   repository_dispatch:
     types: [livemark-release]
   schedule:
-    - cron: "0 6 * * *"
+    - cron: "0 2 * * *"  # 23:00 UTC-3 (end of work day)
   workflow_dispatch:
 
 jobs:
