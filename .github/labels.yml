@@ -1,0 +1,49 @@
+# Label definitions for livemark
+# Import with: gh label import --labels .github/labels.yml
+
+# Type
+- name: "type:bug"
+  color: "CC2222"
+  description: "Bug — incorrect behavior"
+
+- name: "type:feat"
+  color: "1A7F5E"
+  description: "Feature — new capability"
+
+- name: "type:ux"
+  color: "8B5CF6"
+  description: "UX — visual or flow improvement"
+
+- name: "type:chore"
+  color: "6B7280"
+  description: "Chore — build, deps, refactor"
+
+- name: "type:docs"
+  color: "3B82F6"
+  description: "Docs — documentation update"
+
+# Priority
+- name: "priority:p0"
+  color: "FF0000"
+  description: "Priority 0 — data-loss or crash"
+
+- name: "priority:p1"
+  color: "FF6B00"
+  description: "Priority 1 — wrong behavior"
+
+- name: "priority:p2"
+  color: "FFB800"
+  description: "Priority 2 — polish"
+
+# Status
+- name: "status:triage"
+  color: "E5E7EB"
+  description: "Status: needs triage"
+
+- name: "status:ready"
+  color: "86EFAC"
+  description: "Status: ready to implement"
+
+- name: "status:blocked"
+  color: "FCA5A5"
+  description: "Status: blocked"
