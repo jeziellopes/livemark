@@ -1,0 +1,26 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # TODO: replace with your runtime setup step
+      # Examples:
+      #   Go:      uses: actions/setup-go@v5 with: { go-version-file: go.mod }
+      #   Node.js: uses: actions/setup-node@v4 with: { node-version-file: .nvmrc }
+      #   Python:  uses: actions/setup-python@v5 with: { python-version-file: .python-version }
+
+      - name: Build
+        run: echo "TODO: add build command"
+
+      - name: Test
+        run: echo "TODO: add test command"
