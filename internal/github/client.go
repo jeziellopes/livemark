@@ -177,15 +177,19 @@ type PullRequestNode struct {
 	} `json:"repository"`
 }
 
-// FetchAuthoredPRs returns pull requests authored by the user, excluding
-// their own repos and private repos. It requests up to 100 PRs (the GraphQL
-// max) to provide headroom when many results are private or self-owned.
+// FetchAuthoredPRs returns public external PRs authored by the user, paginating
+// as needed to filter out private and self-owned repos. For users with many
+// private contributions, may need multiple pages to find enough public ones.
 func (c *Client) FetchAuthoredPRs(username string, limit int) ([]PullRequestNode, error) {
 	const query = `
-	query($login: String!, $count: Int!) {
+	query($login: String!, $count: Int!, $after: String) {
 		user(login: $login) {
-			pullRequests(first: $count, states: [OPEN, MERGED, CLOSED],
+			pullRequests(first: $count, after: $after, states: [OPEN, MERGED, CLOSED],
 			             orderBy: {field: CREATED_AT, direction: DESC}) {
+				pageInfo {
+					hasNextPage
+					endCursor
+				}
 				nodes {
 					title
 					url
@@ -204,31 +208,46 @@ func (c *Client) FetchAuthoredPRs(username string, limit int) ([]PullRequestNode
 		}
 	}`
 
-	// Always request 100 (the GraphQL max) to have plenty of headroom after
-	// filtering out private repos and self-owned repos.
 	const fetchCount = 100
-
-	var data struct {
-		User struct {
-			PullRequests struct {
-				Nodes []PullRequestNode `json:"nodes"`
-			} `json:"pullRequests"`
-		} `json:"user"`
-	}
-	if err := c.Post(query, map[string]any{"login": username, "count": fetchCount}, &data); err != nil {
-		return nil, err
-	}
+	const maxPages = 5 // Paginate up to 500 PRs to find enough public ones
 
 	var result []PullRequestNode
-	for _, node := range data.User.PullRequests.Nodes {
-		if node.Repository.IsPrivate || node.Repository.Owner.Login == username {
-			continue
+	var after *string
+
+	for page := 0; page < maxPages && len(result) < limit; page++ {
+		var data struct {
+			User struct {
+				PullRequests struct {
+					PageInfo struct {
+						HasNextPage bool   `json:"hasNextPage"`
+						EndCursor   string `json:"endCursor"`
+					} `json:"pageInfo"`
+					Nodes []PullRequestNode `json:"nodes"`
+				} `json:"pullRequests"`
+			} `json:"user"`
 		}
-		result = append(result, node)
-		if len(result) >= limit {
+
+		vars := map[string]any{"login": username, "count": fetchCount, "after": after}
+		if err := c.Post(query, vars, &data); err != nil {
+			return nil, err
+		}
+
+		for _, node := range data.User.PullRequests.Nodes {
+			if node.Repository.IsPrivate || node.Repository.Owner.Login == username {
+				continue
+			}
+			result = append(result, node)
+			if len(result) >= limit {
+				break
+			}
+		}
+
+		if !data.User.PullRequests.PageInfo.HasNextPage {
 			break
 		}
+		after = &data.User.PullRequests.PageInfo.EndCursor
 	}
+
 	return result, nil
 }
 
