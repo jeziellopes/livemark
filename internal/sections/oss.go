@@ -50,11 +50,11 @@ func BuildOSS(client *gh.Client, username string, count int) (string, error) {
 	sortContribs(contribs)
 
 	if len(contribs) == 0 {
-		return "### Recent OSS\n\n_No recent external contributions found._", nil
+		return "### Recent Open Source contributions\n\n_No recent Open Source contributions found._", nil
 	}
 
 	var sb strings.Builder
-	sb.WriteString("### Recent OSS\n\n")
+	sb.WriteString("### Recent Open Source contributions\n\n")
 	for _, c := range contribs {
 		fmt.Fprintf(&sb, "- %s **[%s](%s)** into [%s](%s)\n", c.status, c.title, c.prURL, c.repoName, c.repoURL)
 	}
