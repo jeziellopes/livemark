@@ -20,7 +20,9 @@ jobs:
       #   Python:  uses: actions/setup-python@v5 with: { python-version-file: .python-version }
 
       - name: Build
-        run: echo "TODO: add build command"
+        run: |
+          echo "TODO: add build command"
 
       - name: Test
-        run: echo "TODO: add test command"
+        run: |
+          echo "TODO: add test command"
