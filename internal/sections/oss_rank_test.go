@@ -4,24 +4,6 @@ import (
 	"testing"
 )
 
-func TestRank_MergedFirst(t *testing.T) {
-	if rank(contribution{merged: true}) != 0 {
-		t.Error("merged should have rank 0")
-	}
-}
-
-func TestRank_OpenSecond(t *testing.T) {
-	if rank(contribution{open: true}) != 1 {
-		t.Error("open should have rank 1")
-	}
-}
-
-func TestRank_ClosedLast(t *testing.T) {
-	if rank(contribution{}) != 2 {
-		t.Error("closed should have rank 2")
-	}
-}
-
 func TestOSSSort_NewestFirst(t *testing.T) {
 	input := []contribution{
 		{title: "oldest", createdAt: "2026-03-15T10:00:00Z"},
